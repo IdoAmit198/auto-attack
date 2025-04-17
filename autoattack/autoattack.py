@@ -84,6 +84,7 @@ class AutoAttack():
                                 bs=250,
                                 return_labels=False,
                                 state_path=None):
+        # print(f"batch size = {bs}, x_shape is {x_orig.shape}")
         if state_path is not None and state_path.exists():
             state = EvaluationState.from_disk(state_path)
             if set(self.attacks_to_run) != state.attacks_to_run:
@@ -227,8 +228,8 @@ class AutoAttack():
                     x_adv[non_robust_lin_idcs] = adv_curr[false_batch].detach().to(x_adv.device)
                     y_adv[non_robust_lin_idcs] = output[false_batch].detach().to(x_adv.device)
 
+                    num_non_robust_batch = torch.sum(false_batch)    
                     if self.verbose:
-                        num_non_robust_batch = torch.sum(false_batch)    
                         self.logger.log('{} - {}/{} - {} out of {} successfully perturbed'.format(
                             attack, batch_idx + 1, n_batches, num_non_robust_batch, x.shape[0]))
                 
@@ -257,7 +258,10 @@ class AutoAttack():
         if return_labels:
             return x_adv, y_adv
         else:
-            return x_adv
+            # We compute the total number of non-robust examples by adding the number of non-robust examples to the number of 
+            # examples that were mis-classified without a perturbation
+            non_robust_total_num = num_non_robust_batch + (bs - x.shape[0])
+            return x_adv, non_robust_total_num.item()
         
     def clean_accuracy(self, x_orig, y_orig, bs=250):
         n_batches = math.ceil(x_orig.shape[0] / bs)
